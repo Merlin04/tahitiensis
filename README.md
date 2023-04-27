@@ -1,103 +1,117 @@
-# DTS User Guide
+# Tahitiensis
 
-Congrats! You just saved yourself hours of work by bootstrapping this project with DTS. Let’s get you oriented with what’s here and how to use it.
+### A tiny shared state and event library for ~~React~~ vanilla JS!
 
-> This DTS setup is meant for developing libraries (not apps!) that can be published to NPM. If you’re looking to build a Node app, you could use `ts-node-dev`, plain `ts-node`, or simple `tsc`.
+Tahitiensis is a version of [niue](https://github.com/Merlin04/niue), a small shared state and event library, that works with vanilla JS. Get the same reactive state/event paradigm you know and love in projects where loading in React doesn't make sense.
 
-> If you’re new to TypeScript, checkout [this handy cheatsheet](https://devhints.io/typescript)
+Tahitiensis is a small library (less than **800 bytes** before compression) that provides a simple way to manage your webapp's shared state and send events between components. I find it simplifies the architecture of webapps significantly.
 
-## Commands
+## Why Niue/Tahitiensis?
 
-DTS scaffolds your new library inside `/src`.
+### State
+- Easily create state that's shared across components without any hierarchy
+- Listen for changes to state and react accordingly
+- Storing application state in a single place makes it very easy to save and restore it
+- Simple API supports state patching and imperative state updates
+- Components only subscribe to the state they need
 
-To run DTS, use:
+### Events
+- You don't need to remember the names of events - just import the event's functions and use them
+
+## What is this name
+
+Tahitiensis is the variety of vanilla grown in Niue.
+
+## Installation
 
 ```bash
-npm start # or yarn start
+yarn add tahitiensis
 ```
 
-This builds to `/dist` and runs the project in watch mode so any edits you save inside `src` causes a rebuild to `/dist`.
+## Managing shared state
 
-To do a one-off build, use `npm run build` or `yarn build`.
+To create a store (a thing to hold an object of state), use the `createState` function outside of a component:
 
-To run tests, use `npm test` or `yarn test`.
+```ts
+import { createState } from 'tahitiensis';
 
-## Configuration
-
-Code quality is set up for you with `prettier`, `husky`, and `lint-staged`. Adjust the respective fields in `package.json` accordingly.
-
-### Jest
-
-Jest tests are set up to run with `npm test` or `yarn test`.
-
-### Bundle Analysis
-
-[`size-limit`](https://github.com/ai/size-limit) is set up to calculate the real cost of your library with `npm run size` and visualize the bundle with `npm run analyze`.
-
-#### Setup Files
-
-This is the folder structure we set up for you:
-
-```txt
-/src
-  index.ts        # EDIT THIS
-/test
-  index.test.ts   # EDIT THIS
-.gitignore
-package.json
-README.md         # EDIT THIS
-tsconfig.json
+const [addListener, removeListener, patchStore, getStore] = createState(
+    // Initial value
+    { count: 0, name: "foo" }
+);
 ```
 
-### Rollup
+The resulting `add`/`removeListener` functions can be called in your component to run updates when the state changes:
 
-DTS uses [Rollup](https://rollupjs.org) as a bundler and generates multiple rollup configs for various module formats and build settings. See [Optimizations](#optimizations) for details.
-
-### TypeScript
-
-`tsconfig.json` is set up to interpret `dom` and `esnext` types, as well as `react` for `jsx`. Adjust according to your needs.
-
-## Continuous Integration
-
-### GitHub Actions
-
-Two actions are added by default:
-
-- `main` which installs deps w/ cache, lints, tests, and builds on all pushes against a Node and OS matrix
-- `size` which comments cost comparison of your library on every pull request using [`size-limit`](https://github.com/ai/size-limit)
-
-## Optimizations
-
-Please see the main `dts` [optimizations docs](https://github.com/weiran-zsd/dts-cli#optimizations). In particular, know that you can take advantage of development-only optimizations:
-
-```js
-// ./types/index.d.ts
-declare var __DEV__: boolean;
-
-// inside your code...
-if (__DEV__) {
-  console.log('foo');
-}
+```tsx
+addListener(({ name, count }) => {
+    counter.innerText = count;
+    nameDisplay.innerText = name;
+});
 ```
 
-You can also choose to install and use [invariant](https://github.com/weiran-zsd/dts-cli#invariant) and [warning](https://github.com/weiran-zsd/dts-cli#warning) functions.
+`addListener` also accepts an optional parameter to specify which properties of the state object to "subscribe" to. Changes of these properties will trigger your listener. If you don't specify anything, the entire state object will be watched.
 
-## Module Formats
+```ts
+// Subscribe to only the `count` property
+addListener({ count } => {
+    counter.innerText = count;
+    alert("count changed!"); // this won't run when `name` changes
+}, ["count"]);
+```
 
-CJS, ESModules, and UMD module formats are supported.
+The `getStore` function can be used to access the store outside a state listener:
 
-The appropriate paths are configured in `package.json` and `dist/index.js` accordingly. Please report if any issues are found.
+```ts
+const state = getStore();
+console.log(state.name);
+```
 
-## Named Exports
+The `patchStore` function can be called to update the state. `getStore` is especially useful in combination with `patchStore`:
 
-Per Palmer Group guidelines, [always use named exports.](https://github.com/palmerhq/typescript#exports) Code split inside your React app instead of your React library.
+```tsx
+btn.addEventListener("click", () => {
+    patchStore({ count: getState().count + 1 });
+});
+```
 
-## Including Styles
+As you can see in the example, the value passed to `patchStore` does not need to contain all of the properties in the state object. If you leave one out, it will not be modified.
 
-There are many ways to ship styles, including with CSS-in-JS. DTS has no opinion on this, configure how you like.
+You can also call `patchStore` with no parameters to use mutations to the existing state object:
 
-For vanilla CSS, you can include it at the root directory and add it to the `files` section in your `package.json`, so that it can be imported separately by your users and run through their bundler's loader.
+```ts
+const state = getStore();
+state.name = "Test";
+patchStore();
+```
 
-## Publishing to NPM
+In addition, you can provide an array of changed keys to override Niue's default shallow comparison for detecting changes:
 
-We recommend using [np](https://github.com/sindresorhus/np).
+```ts
+state.things[1].name = "Test";
+patchStore(["things"]);
+```
+
+## Events
+
+Events work similarly to state stores. You can create an event with the createEvent function:
+
+```ts
+import { createEvent } from 'niue';
+
+const [addListener, removeListener, emit] = createEvent<string>();
+```
+
+The `createEvent` function doesn't accept any parameters, however it does have a type parameter for the message data type.
+
+The `add`/`removeListener` functions can be used in a component to subscribe to the event, and the `emit` function can be used to send the event:
+
+```tsx
+btn.addEventListener("click", () => {
+    emit("button clicked!");
+});
+
+addListener((message) => {
+    alert(message);
+});
+```
