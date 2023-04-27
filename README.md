@@ -97,7 +97,7 @@ patchStore(["things"]);
 Events work similarly to state stores. You can create an event with the createEvent function:
 
 ```ts
-import { createEvent } from 'niue';
+import { createEvent } from 'tahitiensis';
 
 const [addListener, removeListener, emit] = createEvent<string>();
 ```
